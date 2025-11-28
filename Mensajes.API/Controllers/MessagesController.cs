@@ -478,11 +478,26 @@ public class MessagesController : ControllerBase
         try
         {
             var apiUrl = Environment.GetEnvironmentVariable("USUARIOS_API_URL") ?? "http://localhost:5156";
-            var response = await _httpClient.GetAsync($"{apiUrl}/api/users/{userId}");
+            
+            // Intentar obtener por AuthId primero, ya que Mensajes.API usa AuthIds principalmente ahora
+            var response = await _httpClient.GetAsync($"{apiUrl}/api/users/auth/{userId}");
             
             if (response.IsSuccessStatusCode)
             {
                 return await response.Content.ReadFromJsonAsync<UserInfoDto>();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                // Si no se encuentra por AuthId, intentar por ID interno (legacy fallback)
+                // Solo si parece un GUID
+                if (Guid.TryParse(userId, out _))
+                {
+                     var responseId = await _httpClient.GetAsync($"{apiUrl}/api/users/{userId}");
+                     if (responseId.IsSuccessStatusCode)
+                     {
+                         return await responseId.Content.ReadFromJsonAsync<UserInfoDto>();
+                     }
+                }
             }
         }
         catch (Exception ex)

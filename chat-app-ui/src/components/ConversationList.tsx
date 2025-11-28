@@ -1,5 +1,6 @@
 import type { Conversacion } from '../lib/messagesApi';
 import type { Grupo } from '../lib/groupsApi';
+import { useMessagesStore } from '../stores/messagesStore';
 
 interface ConversationListProps {
   conversaciones: Conversacion[];
@@ -20,6 +21,8 @@ export default function ConversationList({
   onNuevaConversacion,
   onNuevoGrupo
 }: ConversationListProps) {
+  const unreadCounts = useMessagesStore(state => state.unreadCounts);
+
   const formatTime = (fecha: string) => {
     const date = new Date(fecha);
     const now = new Date();
@@ -88,8 +91,15 @@ export default function ConversationList({
               <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
                 #
               </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">{grupo.nombre}</h3>
+              <div className="flex-1">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-semibold text-gray-900">{grupo.nombre}</h3>
+                  {unreadCounts[grupo.id] > 0 && (
+                    <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold text-white bg-blue-500 rounded-full">
+                      {unreadCounts[grupo.id]}
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-gray-500">Grupo</p>
               </div>
             </div>
@@ -160,9 +170,9 @@ export default function ConversationList({
                     )}
 
                     <div className="flex items-center gap-2 ml-2">
-                      {conv.mensajesNoLeidos > 0 && (
+                      {(conv.mensajesNoLeidos > 0 || unreadCounts[conv.otroUsuarioId] > 0) && (
                         <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold text-white bg-blue-500 rounded-full">
-                          {conv.mensajesNoLeidos}
+                          {Math.max(conv.mensajesNoLeidos, unreadCounts[conv.otroUsuarioId] || 0)}
                         </span>
                       )}
 

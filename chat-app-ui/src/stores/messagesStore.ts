@@ -11,6 +11,8 @@ interface MessagesState {
   loading: boolean;
   error: string | null;
 
+  unreadCounts: Record<string, number>; // Nueva propiedad para contadores no leídos
+
   // Actions
   inicializarSignalR: () => Promise<void>;
   detenerSignalR: () => Promise<void>;
@@ -31,6 +33,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
   tipoConversacionActual: null,
   mensajes: {},
   usuariosEscribiendo: new Set(),
+  unreadCounts: {}, // Inicializar
   loading: false,
   error: null,
 
@@ -41,7 +44,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
       // Escuchar mensaje recibido
       connection.on('ReceiveMessage', (mensaje: any) => {
         console.log('📨 [DEBUG] Mensaje recibido:', { id: mensaje.id, remitente: mensaje.remitenteId, contenido: mensaje.contenido });
-        const { mensajes, conversacionActual } = get();
+        const { mensajes, conversacionActual, unreadCounts } = get();
         const chatKey = mensaje.grupoId || mensaje.remitenteId;
 
         // Agregar mensaje a la lista si no existe
@@ -72,6 +75,14 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
           if (mensaje.id) {
             messagesApiClient.marcarComoLeido(mensaje.id);
           }
+        } else {
+          // Si NO es la conversación actual, incrementar contador
+          set({
+            unreadCounts: {
+              ...unreadCounts,
+              [chatKey]: (unreadCounts[chatKey] || 0) + 1
+            }
+          });
         }
 
         // Recargar conversaciones para actualizar el último mensaje
@@ -98,6 +109,12 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
         });
 
         set({ mensajes: nuevosMensajes });
+      });
+
+      // Escuchar conversación leída
+      connection.on('ConversationRead', (data: any) => {
+        console.log('👁️ Conversación leída por:', data.lectorId);
+        // Aquí podríamos actualizar el estado visual de los mensajes si quisiéramos
       });
 
       // Escuchar usuario escribiendo
@@ -153,7 +170,18 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
   },
 
   seleccionarConversacion: async (id: string, tipo: 'usuario' | 'grupo') => {
-    set({ conversacionActual: id, tipoConversacionActual: tipo, loading: true, error: null });
+    // Resetear contador de no leídos al seleccionar
+    const { unreadCounts } = get();
+    set({
+      conversacionActual: id,
+      tipoConversacionActual: tipo,
+      loading: true,
+      error: null,
+      unreadCounts: {
+        ...unreadCounts,
+        [id]: 0
+      }
+    });
 
     try {
       // Si es grupo, unirse a la sala de SignalR
@@ -243,12 +271,17 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
       const chatKey = grupoId || destinatarioId;
       const mensajesChat = mensajes[chatKey] || [];
 
-      set({
-        mensajes: {
-          ...mensajes,
-          [chatKey]: [...mensajesChat, mensaje]
-        }
-      });
+      // VERIFICAR DUPLICADOS ANTES DE AGREGAR
+      const existe = mensajesChat.some(m => m.id === mensaje.id);
+
+      if (!existe) {
+        set({
+          mensajes: {
+            ...mensajes,
+            [chatKey]: [...mensajesChat, mensaje]
+          }
+        });
+      }
 
       // Recargar conversaciones
       get().cargarConversaciones();

@@ -54,7 +54,7 @@ public class GruposController : ControllerBase
     {
         try 
         {
-            var userId = GetUserId();
+            var userId = GetUserId(); // Este ya es el AuthId (sub claim)
 
             var grupo = new Grupo
             {
@@ -73,22 +73,39 @@ public class GruposController : ControllerBase
             });
 
             // Agregar otros miembros
-            foreach (var miembroId in dto.MiembrosIds)
+            // IMPORTANTE: dto.MiembrosIds contiene Internal IDs (GUIDs) del frontend
+            // Debemos convertirlos a Auth IDs (Strings/GUIDs) para guardarlos en la BD de grupos
+            // ya que Grupos.API usa AuthId para identificar usuarios.
+            var miembrosAuthIds = new List<Guid>();
+
+            foreach (var miembroInternalId in dto.MiembrosIds)
             {
-                if (miembroId != userId) // No duplicar al creador
+                // Obtener info del usuario para sacar su AuthId
+                var userInfo = await GetUserInfo(miembroInternalId);
+                
+                if (userInfo != null && Guid.TryParse(userInfo.AuthId, out var authIdGuid))
                 {
-                    _context.MiembrosGrupo.Add(new MiembroGrupo
+                    if (authIdGuid != userId) // No duplicar al creador
                     {
-                        GrupoId = grupo.Id,
-                        UsuarioId = miembroId
-                    });
+                        _context.MiembrosGrupo.Add(new MiembroGrupo
+                        {
+                            GrupoId = grupo.Id,
+                            UsuarioId = authIdGuid
+                        });
+                        miembrosAuthIds.Add(authIdGuid);
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"⚠️ [Grupos.API] No se pudo resolver AuthId para usuario interno {miembroInternalId}");
                 }
             }
 
             await _context.SaveChangesAsync();
 
             // Notificar a Mensajes.API para que avise a los usuarios via SignalR
-            _ = NotifyGroupCreated(grupo.Id, grupo.Nombre, dto.MiembrosIds.Concat(new[] { userId }).ToList());
+            var allMemberIds = miembrosAuthIds.Concat(new[] { userId }).ToList();
+            _ = NotifyGroupCreated(grupo.Id, grupo.Nombre, allMemberIds);
 
             return Ok(new { id = grupo.Id, nombre = grupo.Nombre });
         }
@@ -128,7 +145,7 @@ public class GruposController : ControllerBase
     {
         try
         {
-            var userId = GetUserId();
+            var userId = GetUserId(); // AuthId
             Console.WriteLine($"✅ [Grupos.API] MisGrupos: Buscando grupos para usuario {userId}");
 
             var gruposIds = await _context.MiembrosGrupo
@@ -142,15 +159,16 @@ public class GruposController : ControllerBase
                 .ToListAsync();
 
             // Obtener información de usuarios
-            var usuariosIds = grupos.SelectMany(g => g.Miembros.Select(m => m.UsuarioId)).Distinct().ToList();
+            // Los IDs en MiembrosGrupo son AuthIds
+            var usuariosAuthIds = grupos.SelectMany(g => g.Miembros.Select(m => m.UsuarioId)).Distinct().ToList();
             var usuariosInfo = new Dictionary<Guid, UserInfoDto>();
 
-            foreach (var id in usuariosIds)
+            foreach (var authId in usuariosAuthIds)
             {
-                var info = await GetUserInfo(id);
+                var info = await GetUserInfoByAuthId(authId.ToString());
                 if (info != null)
                 {
-                    usuariosInfo[id] = info;
+                    usuariosInfo[authId] = info;
                 }
             }
 
@@ -204,6 +222,27 @@ public class GruposController : ControllerBase
         return null;
     }
 
+    private async Task<UserInfoDto?> GetUserInfoByAuthId(string authId)
+    {
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
+            var apiUrl = Environment.GetEnvironmentVariable("USUARIOS_API_URL") ?? "http://localhost:5156";
+            var response = await client.GetAsync($"{apiUrl}/api/users/auth/{authId}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadFromJsonAsync<UserInfoDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ Error al obtener info del usuario por AuthId {authId}: {ex.Message}");
+        }
+
+        return null;
+    }
+
     // GET /api/grupos/{id}/miembros - Listar miembros de un grupo
     [HttpGet("{id}/miembros")]
     public async Task<IActionResult> ListarMiembros(Guid id)
@@ -234,9 +273,16 @@ public class GruposController : ControllerBase
             if (!grupoExiste)
                 return NotFound("Grupo no encontrado");
 
+            // Resolver Internal ID a Auth ID
+            var userInfo = await GetUserInfo(dto.UserId);
+            if (userInfo == null || !Guid.TryParse(userInfo.AuthId, out var authIdGuid))
+            {
+                return BadRequest("Usuario no encontrado o ID inválido");
+            }
+
             // Verificar que no está ya en el grupo
             var yaEsMiembro = await _context.MiembrosGrupo
-                .AnyAsync(m => m.GrupoId == id && m.UsuarioId == dto.UserId);
+                .AnyAsync(m => m.GrupoId == id && m.UsuarioId == authIdGuid);
             
             if (yaEsMiembro)
                 return BadRequest("El usuario ya es miembro del grupo");
@@ -244,7 +290,7 @@ public class GruposController : ControllerBase
             var miembro = new MiembroGrupo
             {
                 GrupoId = id,
-                UsuarioId = dto.UserId
+                UsuarioId = authIdGuid
             };
 
             _context.MiembrosGrupo.Add(miembro);
@@ -257,7 +303,7 @@ public class GruposController : ControllerBase
                 .FirstOrDefaultAsync() ?? "Grupo";
 
             // Notificar
-            _ = NotifyGroupCreated(id, nombreGrupo, new List<Guid> { dto.UserId });
+            _ = NotifyGroupCreated(id, nombreGrupo, new List<Guid> { authIdGuid });
 
             return Ok(miembro);
         }
@@ -274,8 +320,23 @@ public class GruposController : ControllerBase
     {
         try
         {
+            // userId aquí viene del path, asumimos que es AuthId si el cliente lo manda bien,
+            // pero si viene del cliente web actual, probablemente sea InternalId.
+            // Para seguridad, intentamos resolverlo si no encontramos el miembro directo.
+            
             var miembro = await _context.MiembrosGrupo
                 .FirstOrDefaultAsync(m => m.GrupoId == id && m.UsuarioId == userId);
+
+            if (miembro == null)
+            {
+                // Intentar resolver como Internal ID
+                var userInfo = await GetUserInfo(userId);
+                if (userInfo != null && Guid.TryParse(userInfo.AuthId, out var authIdGuid))
+                {
+                    miembro = await _context.MiembrosGrupo
+                        .FirstOrDefaultAsync(m => m.GrupoId == id && m.UsuarioId == authIdGuid);
+                }
+            }
 
             if (miembro == null)
                 return NotFound("Miembro no encontrado");
