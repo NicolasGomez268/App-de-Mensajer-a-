@@ -3,9 +3,15 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
+using Microsoft.EntityFrameworkCore;
+using Usuarios.API.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
+
+// ========== DATABASE ==========
+builder.Services.AddDbContext<UsuariosDbContext>(options =>
+    options.UseNpgsql(config.GetConnectionString("DefaultConnection")));
 
 // ========== 1. CORS ==========
 var allowedOrigins = new[] {
