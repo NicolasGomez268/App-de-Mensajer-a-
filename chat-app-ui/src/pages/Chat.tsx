@@ -26,6 +26,14 @@ export function Chat() {
 
   const [showUserSearch, setShowUserSearch] = useState(false);
 
+  // Efecto para cerrar el modal y loggear cuando cambia conversacionActual
+  useEffect(() => {
+    console.log('[Chat] conversacionActual cambió:', conversacionActual);
+    if (conversacionActual && showUserSearch) {
+      setShowUserSearch(false);
+    }
+  }, [conversacionActual]);
+
   useEffect(() => {
     // Inicializar SignalR y cargar conversaciones
     const init = async () => {
@@ -76,7 +84,9 @@ export function Chat() {
   };
 
   const handleSelectUser = async (usuarioId: string) => {
+    console.log('[Chat] handleSelectUser usuarioId:', usuarioId);
     await iniciarNuevaConversacion(usuarioId);
+    console.log('[Chat] Conversacion actual después de seleccionar:', conversacionActual);
   };
 
   const conversacionActualData = conversaciones.find(

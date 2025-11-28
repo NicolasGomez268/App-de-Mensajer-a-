@@ -12,13 +12,20 @@ export const createSignalRConnection = async () => {
 
   // Obtener token de Supabase
   const { data: { session } } = await supabase.auth.getSession();
+  console.log('[SignalR] Sesión:', session);
   if (!session?.access_token) {
+    console.error('[SignalR] No hay sesión activa, no se puede conectar');
     throw new Error('No hay sesión activa');
   }
+  console.log('[SignalR] Token JWT:', session.access_token);
+  console.log('[SignalR] User ID (sub):', session.user?.id);
 
   connection = new signalR.HubConnectionBuilder()
     .withUrl(`${MENSAJES_API_URL}/hubs/chat`, {
-      accessTokenFactory: () => session.access_token,
+      accessTokenFactory: () => {
+        console.log('[SignalR] accessTokenFactory called, token:', session.access_token);
+        return session.access_token;
+      },
       skipNegotiation: true,
       transport: signalR.HttpTransportType.WebSockets
     })
@@ -28,6 +35,7 @@ export const createSignalRConnection = async () => {
     .configureLogging(signalR.LogLevel.Information)
     .build();
 
+  console.log('[SignalR] HubConnection creado:', connection);
   return connection;
 };
 

@@ -20,13 +20,18 @@ public class ChatHub : Hub
         var userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
                     ?? Context.User?.FindFirst("sub")?.Value;
 
+        _logger.LogInformation($"[SignalR] OnConnectedAsync llamado. ConnectionId: {Context.ConnectionId}, userId: {userId}");
+
         if (!string.IsNullOrEmpty(userId))
         {
             _userConnections[userId] = Context.ConnectionId;
-            _logger.LogInformation($"Usuario {userId} conectado con ConnectionId: {Context.ConnectionId}");
-            
+            _logger.LogInformation($"[SignalR] Usuario {userId} conectado con ConnectionId: {Context.ConnectionId}");
             // Notificar a todos que el usuario está online
             await Clients.Others.SendAsync("UserConnected", userId);
+        }
+        else
+        {
+            _logger.LogWarning($"[SignalR] No se pudo obtener el userId del token JWT. ConnectionId: {Context.ConnectionId}");
         }
 
         await base.OnConnectedAsync();

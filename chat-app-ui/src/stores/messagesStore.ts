@@ -37,10 +37,10 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
       // Escuchar mensaje recibido
       connection.on('ReceiveMessage', (mensaje: any) => {
         console.log('📨 Mensaje recibido:', mensaje);
-        
+        // Mostrar log visible en pantalla para depuración
+        window.alert(`📨 Mensaje recibido por SignalR: ${mensaje.contenido} (de ${mensaje.remitenteId} para ${mensaje.destinatarioId})`);
         const { mensajes, conversacionActual } = get();
         const usuarioId = mensaje.remitenteId;
-        
         // Agregar mensaje a la lista
         const mensajesUsuario = mensajes[usuarioId] || [];
         set({
@@ -168,11 +168,9 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
   },
 
   iniciarNuevaConversacion: async (usuarioId: string) => {
-    // Simplemente seleccionar la conversación, si no existe se creará cuando se envíe el primer mensaje
+    console.log('[messagesStore] iniciarNuevaConversacion usuarioId:', usuarioId);
     set({ conversacionActual: usuarioId });
-    
-    // Si no hay mensajes para este usuario, inicializar array vacío
-    const { mensajes } = get();
+    const { mensajes, conversaciones } = get();
     if (!mensajes[usuarioId]) {
       set({
         mensajes: {
@@ -181,6 +179,24 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
         }
       });
     }
+    // Si la conversación no existe, agregarla con datos mínimos
+    if (!conversaciones.some(c => c.otroUsuarioId === usuarioId)) {
+      set({
+        conversaciones: [
+          ...conversaciones,
+          {
+            id: usuarioId, // temporal, puede ser usuarioId
+            otroUsuarioId: usuarioId,
+            otroUsuarioNombre: 'Nuevo usuario', // puedes mejorar esto si tienes el nombre
+            otroUsuarioAvatar: '',
+            otroUsuarioEstado: 'offline',
+            ultimoMensaje: '',
+            fechaUltimoMensaje: '',
+          }
+        ]
+      });
+    }
+    console.log('[messagesStore] conversacionActual:', get().conversacionActual);
   },
 
   enviarMensaje: async (destinatarioId: string, contenido: string) => {
