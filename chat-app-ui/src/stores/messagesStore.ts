@@ -39,7 +39,6 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
       // Escuchar mensaje recibido
       connection.on('ReceiveMessage', (mensaje: any) => {
         console.log('📨 Mensaje recibido:', mensaje);
-
         const { mensajes, conversacionActual } = get();
         const chatKey = mensaje.grupoId || mensaje.remitenteId;
 
@@ -192,11 +191,9 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
   },
 
   iniciarNuevaConversacion: async (usuarioId: string) => {
-    // Simplemente seleccionar la conversación, si no existe se creará cuando se envíe el primer mensaje
+    console.log('[messagesStore] iniciarNuevaConversacion usuarioId:', usuarioId);
     set({ conversacionActual: usuarioId });
-
-    // Si no hay mensajes para este usuario, inicializar array vacío
-    const { mensajes } = get();
+    const { mensajes, conversaciones } = get();
     if (!mensajes[usuarioId]) {
       set({
         mensajes: {
@@ -205,6 +202,25 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
         }
       });
     }
+    // Si la conversación no existe, agregarla con datos mínimos
+    if (!conversaciones.some(c => c.otroUsuarioId === usuarioId)) {
+      set({
+        conversaciones: [
+          ...conversaciones,
+          {
+            id: usuarioId, // temporal, puede ser usuarioId
+            otroUsuarioId: usuarioId,
+            otroUsuarioNombre: 'Nuevo usuario', // puedes mejorar esto si tienes el nombre
+            otroUsuarioAvatar: '',
+            otroUsuarioEstado: 'offline',
+            ultimaActividad: new Date().toISOString(),
+            ultimoMensaje: undefined,
+            mensajesNoLeidos: 0
+          }
+        ]
+      });
+    }
+    console.log('[messagesStore] conversacionActual:', get().conversacionActual);
   },
 
   enviarMensaje: async (destinatarioId: string, contenido: string, grupoId?: string) => {
