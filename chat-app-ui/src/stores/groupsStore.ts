@@ -8,6 +8,7 @@ interface GroupsState {
 
     cargarGrupos: () => Promise<void>;
     crearGrupo: (nombre: string, miembrosIds: string[]) => Promise<void>;
+    eliminarGrupo: (id: string) => Promise<void>;
     inicializarEventos: () => () => void;
 }
 
@@ -37,6 +38,18 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
         } catch (error) {
             console.error('Error creating group:', error);
             set({ error: 'Error al crear el grupo', loading: false });
+            throw error;
+        }
+    },
+
+    eliminarGrupo: async (id: string) => {
+        try {
+            await groupsApiClient.eliminarGrupo(id);
+            set((state) => ({
+                grupos: state.grupos.filter(g => g.id !== id)
+            }));
+        } catch (error) {
+            console.error('Error deleting group:', error);
             throw error;
         }
     },

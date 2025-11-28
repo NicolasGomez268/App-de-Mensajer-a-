@@ -102,6 +102,23 @@ class GroupsApiClient {
             throw new Error('Failed to add member');
         }
     }
+
+    async eliminarGrupo(id: string): Promise<void> {
+        const token = await this.getAuthToken();
+        if (!token) throw new Error('No authentication token available');
+
+        const response = await fetch(`${GRUPOS_API_URL}/api/grupos/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to delete group: ${response.status} ${errorText}`);
+        }
+    }
 }
 
 export const groupsApiClient = new GroupsApiClient();

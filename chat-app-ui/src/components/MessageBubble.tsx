@@ -23,8 +23,8 @@ export default function MessageBubble({ mensaje, esMio, mostrarNombre = false }:
 
         <div
           className={`relative px-4 py-2 shadow-sm text-sm ${esMio
-              ? 'bg-blue-600 text-white rounded-2xl rounded-tr-none'
-              : 'bg-gray-100 text-gray-800 rounded-2xl rounded-tl-none'
+            ? 'bg-blue-600 text-white rounded-2xl rounded-tr-none'
+            : 'bg-gray-100 text-gray-800 rounded-2xl rounded-tl-none'
             }`}
         >
           <p className="break-words leading-relaxed">{mensaje.contenido}</p>
@@ -33,16 +33,10 @@ export default function MessageBubble({ mensaje, esMio, mostrarNombre = false }:
             }`}>
             <span className="text-[10px]">{formatTime(mensaje.fechaEnvio)}</span>
             {esMio && (
-              <span className={`text-[10px] ${mensaje.leido ? 'text-blue-200' : ''}`}>
-                {mensaje.leido ? (
-                  <svg className="w-3 h-3" viewBox="0 0 16 15" width="16" height="15" fill="currentColor">
-                    <path d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.879a.32.32 0 0 1-.484.033l-.358-.325a.319.319 0 0 0-.484.032l-.378.483a.418.418 0 0 0 .036.541l1.32 1.266c.143.14.361.125.484-.033l6.272-7.46a.41.41 0 0 0-.066-.54M11.027 3.316l-.479-.372a.365.365 0 0 0-.509.063L4.683 9.879a.32.32 0 0 1-.484.033l-2.45-2.224a.418.418 0 0 0-.54.036l-.378.483a.418.418 0 0 0 .036.541l3.32 3.267c.143.14.361.125.484-.033l6.272-7.46a.41.41 0 0 0-.066-.54"></path>
-                  </svg>
-                ) : (
-                  <svg className="w-3 h-3" viewBox="0 0 16 15" width="16" height="15" fill="currentColor">
-                    <path d="M10.91 3.316l-.478-.372a.365.365 0 0 0-.51.063L4.566 9.879a.32.32 0 0 1-.484.033L1.891 7.769a.418.418 0 0 0-.54.036l-.378.483a.418.418 0 0 0 .036.541l2.75 2.543c.143.14.361.125.484-.033l6.196-7.419a.41.41 0 0 0-.066-.54"></path>
-                  </svg>
-                )}
+              <span className={`text-[10px] ${mensaje.leido ? 'text-cyan-300' : 'text-blue-300'}`} title={mensaje.leido ? "Leído" : "Entregado"}>
+                <svg className="w-4 h-4" viewBox="0 0 16 15" width="16" height="15" fill="currentColor">
+                  <path d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.879a.32.32 0 0 1-.484.033l-.358-.325a.319.319 0 0 0-.484.032l-.378.483a.418.418 0 0 0 .036.541l1.32 1.266c.143.14.361.125.484-.033l6.272-7.46a.41.41 0 0 0-.066-.54M11.027 3.316l-.479-.372a.365.365 0 0 0-.509.063L4.683 9.879a.32.32 0 0 1-.484.033l-2.45-2.224a.418.418 0 0 0-.54.036l-.378.483a.418.418 0 0 0 .036.541l3.32 3.267c.143.14.361.125.484-.033l6.272-7.46a.41.41 0 0 0-.066-.54"></path>
+                </svg>
               </span>
             )}
           </div>

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { messagesApiClient, type Conversacion, type Mensaje } from '../lib/messagesApi';
 import { getConnection, startConnection, stopConnection, buildConnection } from '../lib/signalr';
+import { useAuthStore } from './authStore';
 
 interface MessagesState {
   conversaciones: Conversacion[];
@@ -44,8 +45,11 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
       // Escuchar mensaje recibido
       connection.on('ReceiveMessage', (mensaje: any) => {
         console.log('📨 [DEBUG] Mensaje recibido:', { id: mensaje.id, remitente: mensaje.remitenteId, contenido: mensaje.contenido });
+
         const { mensajes, conversacionActual, unreadCounts } = get();
         const chatKey = mensaje.grupoId || mensaje.remitenteId;
+        const currentUser = useAuthStore.getState().user;
+        const esMio = mensaje.remitenteId === currentUser?.authId || mensaje.remitenteId === currentUser?.id;
 
         // Agregar mensaje a la lista si no existe
         const mensajesChat = mensajes[chatKey] || [];
@@ -70,13 +74,13 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
           });
         }
 
-        // Si es la conversación actual, marcar como leído
-        if (conversacionActual === chatKey) {
+        // Si es la conversación actual y NO es mi mensaje, marcar como leído
+        if (conversacionActual === chatKey && !esMio) {
           if (mensaje.id) {
             messagesApiClient.marcarComoLeido(mensaje.id);
           }
-        } else {
-          // Si NO es la conversación actual, incrementar contador
+        } else if (!esMio) {
+          // Si NO es la conversación actual y NO es mi mensaje, incrementar contador
           set({
             unreadCounts: {
               ...unreadCounts,
@@ -195,11 +199,12 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
       // Cargar mensajes si no están en caché
       const { mensajes } = get();
       if (!mensajes[id]) {
+        const LIMIT = 1000; // Cargar historial completo (o una cantidad grande)
         let mensajesNuevos;
         if (tipo === 'grupo') {
-          mensajesNuevos = await messagesApiClient.obtenerMensajesGrupo(id);
+          mensajesNuevos = await messagesApiClient.obtenerMensajesGrupo(id, LIMIT);
         } else {
-          mensajesNuevos = await messagesApiClient.obtenerMensajes(id);
+          mensajesNuevos = await messagesApiClient.obtenerMensajes(id, LIMIT);
         }
 
         set({
