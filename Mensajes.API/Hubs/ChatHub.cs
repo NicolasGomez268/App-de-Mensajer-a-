@@ -49,7 +49,19 @@ public class ChatHub : Hub
         await base.OnDisconnectedAsync(exception);
     }
 
-    public async Task SendMessage(string destinatarioId, string contenido, string tipoMensaje = "texto")
+    public async Task JoinGroup(string groupId)
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, groupId);
+        _logger.LogInformation($"Connection {Context.ConnectionId} joined group {groupId}");
+    }
+
+    public async Task LeaveGroup(string groupId)
+    {
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupId);
+        _logger.LogInformation($"Connection {Context.ConnectionId} left group {groupId}");
+    }
+
+    public async Task SendMessage(string destinatarioId, string contenido, string tipoMensaje = "texto", string? grupoId = null)
     {
         var remitenteId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
                          ?? Context.User?.FindFirst("sub")?.Value;
@@ -60,26 +72,43 @@ public class ChatHub : Hub
             return;
         }
 
-        _logger.LogInformation($"Mensaje de {remitenteId} a {destinatarioId}: {contenido}");
+        _logger.LogInformation($"Mensaje de {remitenteId} a {(grupoId != null ? "Grupo " + grupoId : destinatarioId)}: {contenido}");
 
-        // Si el destinatario está conectado, enviarle el mensaje directamente
-        if (_userConnections.TryGetValue(destinatarioId, out var connectionId))
+        if (!string.IsNullOrEmpty(grupoId))
         {
-            await Clients.Client(connectionId).SendAsync("ReceiveMessage", new
+            // Enviar a grupo
+            await Clients.Group(grupoId).SendAsync("ReceiveMessage", new
             {
                 remitenteId,
-                destinatarioId,
+                destinatarioId = grupoId, // En grupos, el destinatario es el ID del grupo para el cliente
+                grupoId,
                 contenido,
                 tipoMensaje,
                 fechaEnvio = DateTime.UtcNow
             });
         }
+        else
+        {
+            // Enviar a usuario directo
+            if (_userConnections.TryGetValue(destinatarioId, out var connectionId))
+            {
+                await Clients.Client(connectionId).SendAsync("ReceiveMessage", new
+                {
+                    remitenteId,
+                    destinatarioId,
+                    contenido,
+                    tipoMensaje,
+                    fechaEnvio = DateTime.UtcNow
+                });
+            }
+        }
 
-        // También enviar al remitente para confirmación
+        // También enviar al remitente para confirmación (siempre)
         await Clients.Caller.SendAsync("MessageSent", new
         {
             remitenteId,
-            destinatarioId,
+            destinatarioId = grupoId ?? destinatarioId,
+            grupoId,
             contenido,
             tipoMensaje,
             fechaEnvio = DateTime.UtcNow

@@ -319,19 +319,19 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Usuario\\.nuget\\packages\\": {}
+    "C:\\Users\\UliEl\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Usuario\\Documents\\tfiNET\\Shared.Kernel\\Shared.Kernel.csproj",
+      "projectUniqueName": "C:\\Users\\UliEl\\Desktop\\Proyectos\\programación4\\App-de-Mensajer-a-\\Shared.Kernel\\Shared.Kernel.csproj",
       "projectName": "Shared.Kernel",
-      "projectPath": "C:\\Users\\Usuario\\Documents\\tfiNET\\Shared.Kernel\\Shared.Kernel.csproj",
-      "packagesPath": "C:\\Users\\Usuario\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Usuario\\Documents\\tfiNET\\Shared.Kernel\\obj\\",
+      "projectPath": "C:\\Users\\UliEl\\Desktop\\Proyectos\\programación4\\App-de-Mensajer-a-\\Shared.Kernel\\Shared.Kernel.csproj",
+      "packagesPath": "C:\\Users\\UliEl\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\UliEl\\Desktop\\Proyectos\\programación4\\App-de-Mensajer-a-\\Shared.Kernel\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "C:\\Users\\Usuario\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        "C:\\Users\\UliEl\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net9.0"
@@ -382,7 +382,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.305/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.308/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

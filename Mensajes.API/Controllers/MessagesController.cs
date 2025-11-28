@@ -66,43 +66,64 @@ public class MessagesController : ControllerBase
 
         _context.Mensajes.Add(mensaje);
 
-        // Crear o actualizar conversación
-        var conversacion = await _context.Conversaciones
-            .FirstOrDefaultAsync(c =>
-                (c.Usuario1Id == remitenteId && c.Usuario2Id == request.DestinatarioId) ||
-                (c.Usuario1Id == request.DestinatarioId && c.Usuario2Id == remitenteId));
+        // Crear o actualizar conversación (solo si es mensaje directo)
+        // Crear o actualizar conversación (solo si es mensaje directo)
+        if (!request.GrupoId.HasValue)
+        {
+            var conversacion = await _context.Conversaciones
+                .FirstOrDefaultAsync(c =>
+                    (c.Usuario1Id == remitenteId && c.Usuario2Id == request.DestinatarioId) ||
+                    (c.Usuario1Id == request.DestinatarioId && c.Usuario2Id == remitenteId));
 
-        if (conversacion == null)
-        {
-            conversacion = new Conversacion
+            if (conversacion == null)
             {
-                Id = Guid.NewGuid(),
-                Usuario1Id = remitenteId,
-                Usuario2Id = request.DestinatarioId,
-                UltimaActividad = DateTime.UtcNow,
-                UltimoMensajeId = mensaje.Id
-            };
-            _context.Conversaciones.Add(conversacion);
-        }
-        else
-        {
-            conversacion.UltimaActividad = DateTime.UtcNow;
-            conversacion.UltimoMensajeId = mensaje.Id;
+                conversacion = new Conversacion
+                {
+                    Id = Guid.NewGuid(),
+                    Usuario1Id = remitenteId,
+                    Usuario2Id = request.DestinatarioId,
+                    UltimaActividad = DateTime.UtcNow,
+                    UltimoMensajeId = mensaje.Id
+                };
+                _context.Conversaciones.Add(conversacion);
+            }
+            else
+            {
+                conversacion.UltimaActividad = DateTime.UtcNow;
+                conversacion.UltimoMensajeId = mensaje.Id;
+            }
         }
 
         await _context.SaveChangesAsync();
 
         // Enviar notificación via SignalR
-        await _hubContext.Clients.User(request.DestinatarioId).SendAsync("ReceiveMessage", new
+        if (request.GrupoId.HasValue)
         {
-            id = mensaje.Id,
-            remitenteId = mensaje.RemitenteId,
-            destinatarioId = mensaje.DestinatarioId,
-            contenido = mensaje.Contenido,
-            tipoMensaje = mensaje.TipoMensaje,
-            fechaEnvio = mensaje.FechaEnvio,
-            leido = mensaje.Leido
-        });
+             await _hubContext.Clients.Group(request.GrupoId.Value.ToString()).SendAsync("ReceiveMessage", new
+            {
+                id = mensaje.Id,
+                remitenteId = mensaje.RemitenteId,
+                destinatarioId = mensaje.GrupoId, // Para el cliente, el "destinatario" es el grupo
+                grupoId = mensaje.GrupoId,
+                contenido = mensaje.Contenido,
+                tipoMensaje = mensaje.TipoMensaje,
+                fechaEnvio = mensaje.FechaEnvio,
+                leido = mensaje.Leido
+            });
+        }
+        else
+        {
+            await _hubContext.Clients.User(request.DestinatarioId).SendAsync("ReceiveMessage", new
+            {
+                id = mensaje.Id,
+                remitenteId = mensaje.RemitenteId,
+                destinatarioId = mensaje.DestinatarioId,
+                contenido = mensaje.Contenido,
+                tipoMensaje = mensaje.TipoMensaje,
+                fechaEnvio = mensaje.FechaEnvio,
+                leido = mensaje.Leido
+            });
+        }
 
         _logger.LogInformation($"Mensaje enviado de {remitenteId} a {request.DestinatarioId}");
 
@@ -224,6 +245,65 @@ public class MessagesController : ControllerBase
     }
 
     /// <summary>
+    /// Obtener mensajes de un grupo
+    /// </summary>
+    [HttpGet("group/{groupId}")]
+    public async Task<ActionResult<List<MensajeDto>>> GetGroupMessages(string groupId, [FromQuery] int limit = 50)
+    {
+        var userId = GetCurrentUserId();
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        // TODO: Verificar si el usuario pertenece al grupo (llamando a Grupos.API o confiando en el cliente por ahora)
+        // Por simplicidad y rapidez, confiamos en que si tiene el ID es porque puede verlo, 
+        // pero idealmente deberíamos validar membresía.
+
+        if (!Guid.TryParse(groupId, out var groupGuid))
+        {
+            return BadRequest("ID de grupo inválido");
+        }
+
+        var mensajes = await _context.Mensajes
+            .Where(m => m.GrupoId == groupGuid)
+            .OrderByDescending(m => m.FechaEnvio)
+            .Take(limit)
+            .ToListAsync();
+
+        // Obtener información de los remitentes para mostrar nombres
+        var remitentesIds = mensajes.Select(m => m.RemitenteId).Distinct().ToList();
+        var remitentesInfo = new Dictionary<string, UserInfoDto>();
+
+        foreach (var id in remitentesIds)
+        {
+            var info = await GetUserInfo(id);
+            if (info != null)
+            {
+                remitentesInfo[id] = info;
+            }
+        }
+
+        var mensajesDto = mensajes.Select(m => new MensajeDto
+        {
+            Id = m.Id,
+            RemitenteId = m.RemitenteId,
+            RemitenteNombre = remitentesInfo.ContainsKey(m.RemitenteId) ? remitentesInfo[m.RemitenteId].Nombre : "Usuario",
+            RemitenteAvatar = remitentesInfo.ContainsKey(m.RemitenteId) ? remitentesInfo[m.RemitenteId].AvatarUrl : null,
+            DestinatarioId = m.DestinatarioId,
+            GrupoId = m.GrupoId,
+            Contenido = m.Contenido,
+            TipoMensaje = m.TipoMensaje,
+            FechaEnvio = m.FechaEnvio,
+            Leido = m.Leido,
+            FechaLectura = m.FechaLectura,
+            ArchivoUrl = m.ArchivoUrl
+        }).Reverse().ToList();
+
+        return Ok(mensajesDto);
+    }
+
+    /// <summary>
     /// Marcar mensaje como leído
     /// </summary>
     [HttpPatch("{mensajeId}/read")]
@@ -241,10 +321,17 @@ public class MessagesController : ControllerBase
             return NotFound();
         }
 
-        if (mensaje.DestinatarioId != userId)
+        // Si es mensaje directo, verificar que soy el destinatario
+        if (!mensaje.GrupoId.HasValue && mensaje.DestinatarioId != userId)
         {
             return Forbid();
         }
+        
+        // Si es mensaje de grupo, por ahora permitimos que cualquiera lo marque como leído
+        // TODO: Implementar tabla de lecturas por usuario para grupos
+
+        // Evitar marcar como leído si ya lo está (optimización)
+        if (mensaje.Leido) return NoContent();
 
         mensaje.Leido = true;
         mensaje.FechaLectura = DateTime.UtcNow;

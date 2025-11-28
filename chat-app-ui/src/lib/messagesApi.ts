@@ -44,7 +44,7 @@ class MessagesApiClient {
 
   async enviarMensaje(request: EnviarMensajeRequest): Promise<Mensaje> {
     const token = await this.getAuthToken();
-    
+
     if (!token) {
       throw new Error('No authentication token available');
     }
@@ -68,7 +68,7 @@ class MessagesApiClient {
 
   async obtenerConversaciones(): Promise<Conversacion[]> {
     const token = await this.getAuthToken();
-    
+
     if (!token) {
       throw new Error('No authentication token available');
     }
@@ -88,7 +88,7 @@ class MessagesApiClient {
 
   async obtenerMensajes(otroUsuarioId: string, limit = 50): Promise<Mensaje[]> {
     const token = await this.getAuthToken();
-    
+
     if (!token) {
       throw new Error('No authentication token available');
     }
@@ -109,9 +109,32 @@ class MessagesApiClient {
     return response.json();
   }
 
+  async obtenerMensajesGrupo(grupoId: string, limit = 50): Promise<Mensaje[]> {
+    const token = await this.getAuthToken();
+
+    if (!token) {
+      throw new Error('No authentication token available');
+    }
+
+    const response = await fetch(
+      `${MENSAJES_API_URL}/api/messages/group/${grupoId}?limit=${limit}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to get group messages');
+    }
+
+    return response.json();
+  }
+
   async marcarComoLeido(mensajeId: string): Promise<void> {
     const token = await this.getAuthToken();
-    
+
     if (!token) {
       throw new Error('No authentication token available');
     }
@@ -133,7 +156,7 @@ class MessagesApiClient {
 
   async marcarTodosComoLeidos(otroUsuarioId: string): Promise<void> {
     const token = await this.getAuthToken();
-    
+
     if (!token) {
       throw new Error('No authentication token available');
     }
@@ -155,7 +178,7 @@ class MessagesApiClient {
 
   async eliminarMensaje(mensajeId: string): Promise<void> {
     const token = await this.getAuthToken();
-    
+
     if (!token) {
       throw new Error('No authentication token available');
     }

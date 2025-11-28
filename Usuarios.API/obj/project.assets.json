@@ -3567,19 +3567,19 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Usuario\\.nuget\\packages\\": {}
+    "C:\\Users\\UliEl\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Usuario\\Documents\\tfiNET\\Usuarios.API\\Usuarios.API.csproj",
+      "projectUniqueName": "C:\\Users\\UliEl\\Desktop\\Proyectos\\programación4\\App-de-Mensajer-a-\\Usuarios.API\\Usuarios.API.csproj",
       "projectName": "Usuarios.API",
-      "projectPath": "C:\\Users\\Usuario\\Documents\\tfiNET\\Usuarios.API\\Usuarios.API.csproj",
-      "packagesPath": "C:\\Users\\Usuario\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Usuario\\Documents\\tfiNET\\Usuarios.API\\obj\\",
+      "projectPath": "C:\\Users\\UliEl\\Desktop\\Proyectos\\programación4\\App-de-Mensajer-a-\\Usuarios.API\\Usuarios.API.csproj",
+      "packagesPath": "C:\\Users\\UliEl\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\UliEl\\Desktop\\Proyectos\\programación4\\App-de-Mensajer-a-\\Usuarios.API\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "C:\\Users\\Usuario\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        "C:\\Users\\UliEl\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net9.0"
@@ -3591,8 +3591,8 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "projectReferences": {
-            "C:\\Users\\Usuario\\Documents\\tfiNET\\Shared.Kernel\\Shared.Kernel.csproj": {
-              "projectPath": "C:\\Users\\Usuario\\Documents\\tfiNET\\Shared.Kernel\\Shared.Kernel.csproj"
+            "C:\\Users\\UliEl\\Desktop\\Proyectos\\programación4\\App-de-Mensajer-a-\\Shared.Kernel\\Shared.Kernel.csproj": {
+              "projectPath": "C:\\Users\\UliEl\\Desktop\\Proyectos\\programación4\\App-de-Mensajer-a-\\Shared.Kernel\\Shared.Kernel.csproj"
             }
           }
         }
@@ -3651,7 +3651,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.305/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.308/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

@@ -5,12 +5,15 @@ import MessageInput from '../components/MessageInput';
 import UserSearchModal from '../components/UserSearchModal';
 import { useAuthStore } from '../stores/authStore';
 import { useMessagesStore } from '../stores/messagesStore';
+import { useGroupsStore } from '../stores/groupsStore';
+import CreateGroupModal from '../components/CreateGroupModal';
 
 export function Chat() {
   const { user, signOut } = useAuthStore();
   const {
     conversaciones,
     conversacionActual,
+    tipoConversacionActual,
     mensajes,
     usuariosEscribiendo,
     loading,
@@ -24,14 +27,20 @@ export function Chat() {
     notificarDejoDeEscribir
   } = useMessagesStore();
 
+  const { grupos, cargarGrupos } = useGroupsStore();
+
   const [showUserSearch, setShowUserSearch] = useState(false);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
 
   useEffect(() => {
     // Inicializar SignalR y cargar conversaciones
     const init = async () => {
       try {
         await inicializarSignalR();
-        await cargarConversaciones();
+        await Promise.all([
+          cargarConversaciones(),
+          cargarGrupos()
+        ]);
       } catch (error) {
         console.error('Error al inicializar chat:', error);
       }
@@ -55,12 +64,22 @@ export function Chat() {
   };
 
   const handleSeleccionarConversacion = async (usuarioId: string) => {
-    await seleccionarConversacion(usuarioId);
+    await seleccionarConversacion(usuarioId, 'usuario');
   };
 
   const handleEnviarMensaje = async (contenido: string) => {
     if (!conversacionActual) return;
-    await enviarMensaje(conversacionActual, contenido);
+
+    if (tipoConversacionActual === 'grupo') {
+      await enviarMensaje(conversacionActual, contenido, conversacionActual);
+    } else {
+      await enviarMensaje(conversacionActual, contenido);
+    }
+  };
+
+  const handleSeleccionarGrupo = async (grupoId: string) => {
+    console.log('Grupo seleccionado:', grupoId);
+    await seleccionarConversacion(grupoId, 'grupo');
   };
 
   const handleTyping = () => {
@@ -79,12 +98,24 @@ export function Chat() {
     await iniciarNuevaConversacion(usuarioId);
   };
 
-  const conversacionActualData = conversaciones.find(
-    c => c.otroUsuarioId === conversacionActual
-  );
+  const conversacionActualData = tipoConversacionActual === 'grupo'
+    ? grupos.find(g => g.id === conversacionActual)
+    : conversaciones.find(c => c.otroUsuarioId === conversacionActual);
 
   const mensajesActuales = conversacionActual ? mensajes[conversacionActual] || [] : [];
   const usuarioEscribiendo = conversacionActual ? usuariosEscribiendo.has(conversacionActual) : false;
+
+  const nombreChat = tipoConversacionActual === 'grupo'
+    ? (conversacionActualData as any)?.nombre
+    : (conversacionActualData as any)?.otroUsuarioNombre;
+
+  const avatarChat = tipoConversacionActual === 'grupo'
+    ? null // TODO: Group avatar
+    : (conversacionActualData as any)?.otroUsuarioAvatar;
+
+  const estadoChat = tipoConversacionActual === 'grupo'
+    ? (conversacionActualData as any)?.miembros?.map((m: any) => m.nombreUsuario).join(', ') || 'Sin miembros'
+    : (conversacionActualData as any)?.otroUsuarioEstado || 'offline';
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">
@@ -113,9 +144,12 @@ export function Chat() {
         {/* Sidebar - Lista de conversaciones */}
         <ConversationList
           conversaciones={conversaciones}
+          grupos={grupos}
           conversacionActual={conversacionActual}
           onSeleccionar={handleSeleccionarConversacion}
+          onSeleccionarGrupo={handleSeleccionarGrupo}
           onNuevaConversacion={() => setShowUserSearch(true)}
+          onNuevoGrupo={() => setShowCreateGroup(true)}
         />
 
         {/* Chat Area */}
@@ -125,23 +159,23 @@ export function Chat() {
               {/* Chat Header */}
               <div className="border-b px-6 py-4 bg-white">
                 <div className="flex items-center gap-3">
-                  {conversacionActualData.otroUsuarioAvatar ? (
+                  {avatarChat ? (
                     <img
-                      src={conversacionActualData.otroUsuarioAvatar}
-                      alt={conversacionActualData.otroUsuarioNombre}
+                      src={avatarChat}
+                      alt={nombreChat}
                       className="w-10 h-10 rounded-full"
                     />
                   ) : (
                     <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-white font-semibold">
-                      {conversacionActualData.otroUsuarioNombre.charAt(0).toUpperCase()}
+                      {nombreChat?.charAt(0).toUpperCase()}
                     </div>
                   )}
                   <div>
                     <h2 className="font-semibold text-gray-900">
-                      {conversacionActualData.otroUsuarioNombre}
+                      {nombreChat}
                     </h2>
                     <p className="text-sm text-gray-500">
-                      {conversacionActualData.otroUsuarioEstado || 'offline'}
+                      {estadoChat}
                     </p>
                   </div>
                 </div>
@@ -152,7 +186,8 @@ export function Chat() {
                 mensajes={mensajesActuales}
                 loading={loading}
                 usuarioEscribiendo={usuarioEscribiendo}
-                nombreOtroUsuario={conversacionActualData.otroUsuarioNombre}
+                nombreOtroUsuario={nombreChat}
+                esGrupo={tipoConversacionActual === 'grupo'}
               />
 
               {/* Message Input */}
@@ -192,6 +227,12 @@ export function Chat() {
         isOpen={showUserSearch}
         onClose={() => setShowUserSearch(false)}
         onSelectUser={handleSelectUser}
+      />
+
+      {/* Modal de crear grupo */}
+      <CreateGroupModal
+        isOpen={showCreateGroup}
+        onClose={() => setShowCreateGroup(false)}
       />
     </div>
   );

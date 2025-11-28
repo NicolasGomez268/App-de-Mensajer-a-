@@ -8,13 +8,15 @@ interface ChatWindowProps {
   loading: boolean;
   usuarioEscribiendo: boolean;
   nombreOtroUsuario?: string;
+  esGrupo?: boolean;
 }
 
-export default function ChatWindow({ 
-  mensajes, 
-  loading, 
+export default function ChatWindow({
+  mensajes,
+  loading,
   usuarioEscribiendo,
-  nombreOtroUsuario 
+  nombreOtroUsuario,
+  esGrupo = false
 }: ChatWindowProps) {
   const { user } = useAuthStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -66,6 +68,7 @@ export default function ChatWindow({
           key={mensaje.id}
           mensaje={mensaje}
           esMio={mensaje.remitenteId === user?.id}
+          mostrarNombre={esGrupo && mensaje.remitenteId !== user?.id}
         />
       ))}
 

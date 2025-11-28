@@ -1,24 +1,31 @@
 import type { Conversacion } from '../lib/messagesApi';
+import type { Grupo } from '../lib/groupsApi';
 
 interface ConversationListProps {
   conversaciones: Conversacion[];
+  grupos: Grupo[];
   conversacionActual: string | null;
   onSeleccionar: (usuarioId: string) => void;
+  onSeleccionarGrupo: (grupoId: string) => void;
   onNuevaConversacion: () => void;
+  onNuevoGrupo: () => void;
 }
 
-export default function ConversationList({ 
-  conversaciones, 
-  conversacionActual, 
+export default function ConversationList({
+  conversaciones,
+  grupos,
+  conversacionActual,
   onSeleccionar,
-  onNuevaConversacion
+  onSeleccionarGrupo,
+  onNuevaConversacion,
+  onNuevoGrupo
 }: ConversationListProps) {
   const formatTime = (fecha: string) => {
     const date = new Date(fecha);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
-    
+
     if (hours < 24) {
       return date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
     } else if (hours < 48) {
@@ -42,7 +49,7 @@ export default function ConversationList({
   return (
     <div className="w-80 border-r bg-gray-50 overflow-y-auto">
       <div className="p-4 border-b bg-white">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-2">
           <h2 className="text-xl font-semibold">Mensajes</h2>
           <button
             onClick={onNuevaConversacion}
@@ -54,10 +61,45 @@ export default function ConversationList({
             </svg>
           </button>
         </div>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase">Grupos</h2>
+          <button
+            onClick={onNuevoGrupo}
+            className="p-1 text-blue-500 hover:bg-blue-50 rounded-full"
+            title="Nuevo grupo"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+        </div>
       </div>
-      
+
       <div className="divide-y">
-        {conversaciones.length === 0 ? (
+        {/* Lista de Grupos */}
+        {grupos.map((grupo) => (
+          <div
+            key={grupo.id}
+            onClick={() => onSeleccionarGrupo(grupo.id)}
+            className={`p-4 cursor-pointer hover:bg-gray-100 transition-colors ${conversacionActual === grupo.id ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+              }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                #
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">{grupo.nombre}</h3>
+                <p className="text-xs text-gray-500">Grupo</p>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {/* Separador */}
+        {grupos.length > 0 && <div className="bg-gray-100 px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Chats Directos</div>}
+
+        {conversaciones.length === 0 && grupos.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <p>No hay conversaciones</p>
             <p className="text-sm mt-2">Busca un usuario para comenzar a chatear</p>
@@ -67,9 +109,8 @@ export default function ConversationList({
             <div
               key={conv.id}
               onClick={() => onSeleccionar(conv.otroUsuarioId)}
-              className={`p-4 cursor-pointer hover:bg-gray-100 transition-colors ${
-                conversacionActual === conv.otroUsuarioId ? 'bg-blue-50 border-l-4 border-blue-500' : ''
-              }`}
+              className={`p-4 cursor-pointer hover:bg-gray-100 transition-colors ${conversacionActual === conv.otroUsuarioId ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                }`}
             >
               <div className="flex items-start gap-3">
                 {/* Avatar */}
@@ -85,7 +126,7 @@ export default function ConversationList({
                       {conv.otroUsuarioNombre.charAt(0).toUpperCase()}
                     </div>
                   )}
-                  
+
                   {/* Indicador de estado */}
                   <div
                     className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${getEstadoColor(

@@ -6,4 +6,6 @@ public class Grupo
     public string Nombre { get; set; } = string.Empty;
     public Guid CreadoPor { get; set; }
     public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
+    
+    public ICollection<MiembroGrupo> Miembros { get; set; } = new List<MiembroGrupo>();
 }
