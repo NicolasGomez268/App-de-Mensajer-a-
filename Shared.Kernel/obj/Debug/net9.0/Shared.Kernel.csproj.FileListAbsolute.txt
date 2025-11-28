@@ -1,0 +1,13 @@
+C:\Users\Usuario\Documents\tfiNET\Shared.Kernel\bin\Debug\net9.0\Shared.Kernel.deps.json
+C:\Users\Usuario\Documents\tfiNET\Shared.Kernel\bin\Debug\net9.0\Shared.Kernel.dll
+C:\Users\Usuario\Documents\tfiNET\Shared.Kernel\bin\Debug\net9.0\Shared.Kernel.pdb
+C:\Users\Usuario\Documents\tfiNET\Shared.Kernel\obj\Debug\net9.0\Shared.Kernel.csproj.AssemblyReference.cache
+C:\Users\Usuario\Documents\tfiNET\Shared.Kernel\obj\Debug\net9.0\Shared.Kernel.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Usuario\Documents\tfiNET\Shared.Kernel\obj\Debug\net9.0\Shared.Kernel.AssemblyInfoInputs.cache
+C:\Users\Usuario\Documents\tfiNET\Shared.Kernel\obj\Debug\net9.0\Shared.Kernel.AssemblyInfo.cs
+C:\Users\Usuario\Documents\tfiNET\Shared.Kernel\obj\Debug\net9.0\Shared.Kernel.csproj.CoreCompileInputs.cache
+C:\Users\Usuario\Documents\tfiNET\Shared.Kernel\obj\Debug\net9.0\Shared.Kernel.sourcelink.json
+C:\Users\Usuario\Documents\tfiNET\Shared.Kernel\obj\Debug\net9.0\Shared.Kernel.dll
+C:\Users\Usuario\Documents\tfiNET\Shared.Kernel\obj\Debug\net9.0\refint\Shared.Kernel.dll
+C:\Users\Usuario\Documents\tfiNET\Shared.Kernel\obj\Debug\net9.0\Shared.Kernel.pdb
+C:\Users\Usuario\Documents\tfiNET\Shared.Kernel\obj\Debug\net9.0\ref\Shared.Kernel.dll
