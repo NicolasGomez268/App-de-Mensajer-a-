@@ -129,3 +129,6 @@ C:\Users\Usuario\Documents\tfiNET\Usuarios.API\obj\Debug\net9.0\refint\Usuarios.
 C:\Users\Usuario\Documents\tfiNET\Usuarios.API\obj\Debug\net9.0\Usuarios.API.pdb
 C:\Users\Usuario\Documents\tfiNET\Usuarios.API\obj\Debug\net9.0\Usuarios.API.genruntimeconfig.cache
 C:\Users\Usuario\Documents\tfiNET\Usuarios.API\obj\Debug\net9.0\ref\Usuarios.API.dll
+C:\Users\Usuario\Documents\tfiNET\Usuarios.API\bin\Debug\net9.0\Swashbuckle.AspNetCore.Swagger.dll
+C:\Users\Usuario\Documents\tfiNET\Usuarios.API\bin\Debug\net9.0\Swashbuckle.AspNetCore.SwaggerGen.dll
+C:\Users\Usuario\Documents\tfiNET\Usuarios.API\bin\Debug\net9.0\Swashbuckle.AspNetCore.SwaggerUI.dll

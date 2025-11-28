@@ -131,3 +131,6 @@ C:\Users\Usuario\Documents\tfiNET\Mensajes.API\obj\Debug\net9.0\refint\Mensajes.
 C:\Users\Usuario\Documents\tfiNET\Mensajes.API\obj\Debug\net9.0\Mensajes.API.pdb
 C:\Users\Usuario\Documents\tfiNET\Mensajes.API\obj\Debug\net9.0\Mensajes.API.genruntimeconfig.cache
 C:\Users\Usuario\Documents\tfiNET\Mensajes.API\obj\Debug\net9.0\ref\Mensajes.API.dll
+C:\Users\Usuario\Documents\tfiNET\Mensajes.API\bin\Debug\net9.0\Swashbuckle.AspNetCore.Swagger.dll
+C:\Users\Usuario\Documents\tfiNET\Mensajes.API\bin\Debug\net9.0\Swashbuckle.AspNetCore.SwaggerGen.dll
+C:\Users\Usuario\Documents\tfiNET\Mensajes.API\bin\Debug\net9.0\Swashbuckle.AspNetCore.SwaggerUI.dll
