@@ -71,22 +71,39 @@ class ApiClient {
   }
 
   async searchUsers(search?: string): Promise<User[]> {
-    const token = await this.getAuthToken()
-    const url = search 
-      ? `${API_URL}/api/users?search=${encodeURIComponent(search)}`
-      : `${API_URL}/api/users`
-    
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`
+      console.log('🔑 [searchUsers] Antes de getAuthToken');
+      const token = await this.getAuthToken();
+      console.log('🔑 [searchUsers] Token obtenido:', token);
+      if (!token) {
+        console.error('❌ [searchUsers] No authentication token available');
+        throw new Error('No authentication token available');
       }
-    })
 
-    if (!response.ok) {
-      throw new Error('Failed to search users')
-    }
+      const url = search 
+        ? `${API_URL}/api/users?search=${encodeURIComponent(search)}`
+        : `${API_URL}/api/users`;
+      console.log('🌐 Calling:', url);
+      console.log('🔑 Token present:', !!token);
 
-    return response.json()
+      try {
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        console.log('📡 Response status:', response.status);
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ API Error:', errorText);
+          throw new Error(`Failed to search users: ${response.status} ${errorText}`);
+        }
+        const result = await response.json();
+        console.log('📋 API Result:', result);
+        return result;
+      } catch (err) {
+        console.error('❌ [searchUsers] Error en fetch:', err);
+        throw err;
+      }
   }
 
   async updateStatus(estado: string): Promise<void> {

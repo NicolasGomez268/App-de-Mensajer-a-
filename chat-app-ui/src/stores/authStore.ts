@@ -1,6 +1,6 @@
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js'
 import { create } from 'zustand'
-import { apiClient, User } from '../lib/api'
+import { apiClient, type User } from '../lib/api'
 import { supabase } from '../lib/supabase'
 
 interface AuthState {
