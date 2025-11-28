@@ -63,14 +63,21 @@ export default function ChatWindow({
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 p-4">
-      {mensajes.map((mensaje) => (
-        <MessageBubble
-          key={mensaje.id}
-          mensaje={mensaje}
-          esMio={mensaje.remitenteId === user?.id}
-          mostrarNombre={esGrupo && mensaje.remitenteId !== user?.id}
-        />
-      ))}
+      {mensajes.map((mensaje) => {
+        // El remitenteId en el mensaje es el AuthId (Supabase ID)
+        // El user.id en el store es el ID interno de la BD
+        // El user.authId en el store es el AuthId (Supabase ID)
+        const esMio = mensaje.remitenteId === user?.authId || mensaje.remitenteId === user?.id;
+
+        return (
+          <MessageBubble
+            key={mensaje.id}
+            mensaje={mensaje}
+            esMio={esMio}
+            mostrarNombre={esGrupo && !esMio}
+          />
+        );
+      })}
 
       {usuarioEscribiendo && (
         <div className="flex items-center gap-2 text-gray-500 text-sm mb-4">
