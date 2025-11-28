@@ -1,13 +1,19 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
+using Microsoft.EntityFrameworkCore;
+using Mensajes.API.Data;
+using Mensajes.API.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
 
-// ========== 1. CORS ==========
+builder.Services.AddHttpClient();
+builder.Services.AddDbContext<MensajeriaDbContext>(options =>
+    options.UseNpgsql(config.GetConnectionString("DefaultConnection")));
+
 var allowedOrigins = new[] {
     "http://localhost:3000",
     "http://localhost:5173",
@@ -25,7 +31,6 @@ builder.Services.AddCors(options =>
     });
 });
 
-// ========== 2. RATE LIMITING ==========
 builder.Services.AddRateLimiter(options =>
 {
     options.AddFixedWindowLimiter("fixed", limiter =>
@@ -37,50 +42,45 @@ builder.Services.AddRateLimiter(options =>
     });
 });
 
-// ========== 3. AUTENTICACIÓN JWT ==========
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.RequireHttpsMetadata = false;
+        options.SaveToken = true;
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = true,
-            ValidateAudience = true,
+            ValidateIssuer = false,
+            ValidateAudience = false,
             ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = config["Jwt:Issuer"],
-            ValidAudience = config["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(config["Jwt:Key"]!))
+            ValidateIssuerSigningKey = false,
+            SignatureValidator = (token, parameters) => new JsonWebToken(token)
         };
-
-        // ⚠️ IMPORTANTE para SignalR
+        
         options.Events = new JwtBearerEvents
         {
             OnMessageReceived = context =>
             {
                 var accessToken = context.Request.Query["access_token"];
                 var path = context.HttpContext.Request.Path;
-                if (!string.IsNullOrEmpty(accessToken) && 
-                    path.StartsWithSegments("/chathub"))
+                
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/chat"))
                 {
                     context.Token = accessToken;
                 }
+                
                 return Task.CompletedTask;
             }
         };
     });
 
 builder.Services.AddAuthorization();
-
-// ========== 4. CONTROLADORES ==========
+builder.Services.AddSignalR();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// ========== BUILD ==========
 var app = builder.Build();
 
-// ========== MIDDLEWARE ==========
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -93,8 +93,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers().RequireRateLimiting("fixed");
-
-// ⚠️ SignalR Hub (se configurará más adelante)
-// app.MapHub<ChatHub>("/chathub").RequireAuthorization();
+app.MapHub<ChatHub>("/hubs/chat").RequireAuthorization();
 
 app.Run();
