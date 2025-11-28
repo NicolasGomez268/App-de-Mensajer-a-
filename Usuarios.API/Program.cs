@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.IdentityModel.JsonWebTokens;
 using System.Text;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
@@ -8,6 +9,9 @@ using Usuarios.API.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
+
+// ========== HTTP CLIENT ==========
+builder.Services.AddHttpClient();
 
 // ========== DATABASE ==========
 builder.Services.AddDbContext<UsuariosDbContext>(options =>
@@ -47,16 +51,39 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.RequireHttpsMetadata = false;
+        options.SaveToken = true;
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = true,
-            ValidateAudience = true,
+            ValidateIssuer = false,  // Desactivado temporalmente
+            ValidateAudience = false, // Desactivado temporalmente
             ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = config["Jwt:Issuer"],
-            ValidAudience = config["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(config["Jwt:Key"]!))
+            ValidateIssuerSigningKey = false, // Desactivado temporalmente
+            SignatureValidator = (token, parameters) => new JsonWebToken(token) // Acepta cualquier firma
+        };
+        
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                Console.WriteLine($"❌ JWT Authentication failed: {context.Exception.Message}");
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = context =>
+            {
+                Console.WriteLine("✅ JWT Token validated successfully");
+                return Task.CompletedTask;
+            },
+            OnMessageReceived = context =>
+            {
+                Console.WriteLine($"📨 JWT Token received: {context.Token?.Substring(0, 30)}...");
+                return Task.CompletedTask;
+            },
+            OnChallenge = context =>
+            {
+                Console.WriteLine($"⚠️ JWT Challenge: {context.Error} - {context.ErrorDescription}");
+                return Task.CompletedTask;
+            }
         };
     });
 

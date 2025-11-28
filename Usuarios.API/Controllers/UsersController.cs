@@ -30,11 +30,19 @@ public class UsersController : ControllerBase
     {
         try
         {
+            _logger.LogInformation("=== SYNC USER REQUEST ===");
+            _logger.LogInformation("Request: {@Request}", request);
+            _logger.LogInformation("User.Identity.IsAuthenticated: {IsAuth}", User.Identity?.IsAuthenticated);
+            _logger.LogInformation("Claims: {Claims}", string.Join(", ", User.Claims.Select(c => $"{c.Type}={c.Value}")));
+            
             var authId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
                         ?? User.FindFirst("sub")?.Value;
 
+            _logger.LogInformation("AuthId extracted: {AuthId}", authId);
+
             if (string.IsNullOrEmpty(authId))
             {
+                _logger.LogWarning("No authId found in claims");
                 return Unauthorized("No se pudo obtener el ID de autenticación");
             }
 
