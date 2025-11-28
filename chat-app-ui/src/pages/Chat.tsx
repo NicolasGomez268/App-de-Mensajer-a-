@@ -24,13 +24,15 @@ export function Chat() {
     iniciarNuevaConversacion,
     enviarMensaje,
     notificarEscribiendo,
-    notificarDejoDeEscribir
+    notificarDejoDeEscribir,
+    unirseAGrupos
   } = useMessagesStore();
 
-  const { grupos, cargarGrupos } = useGroupsStore();
+  const { grupos, cargarGrupos, inicializarEventos } = useGroupsStore();
 
   const [showUserSearch, setShowUserSearch] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
 
   // Efecto para cerrar el modal y loggear cuando cambia conversacionActual
   useEffect(() => {
@@ -40,17 +42,30 @@ export function Chat() {
     }
   }, [conversacionActual]);
 
+  // Inicializar SignalR y cargar conversaciones
   useEffect(() => {
-    // Inicializar SignalR y cargar conversaciones
+    let cleanupGroupsEvents: () => void;
+
     const init = async () => {
       try {
+        setConnectionStatus('connecting');
         await inicializarSignalR();
+        setConnectionStatus('connected');
+
+        cleanupGroupsEvents = inicializarEventos();
         await Promise.all([
           cargarConversaciones(),
           cargarGrupos()
         ]);
+
+        // Unirse a los grupos cargados para recibir notificaciones
+        const gruposCargados = useGroupsStore.getState().grupos;
+        if (gruposCargados.length > 0) {
+          await unirseAGrupos(gruposCargados.map(g => g.id));
+        }
       } catch (error) {
         console.error('Error al inicializar chat:', error);
+        setConnectionStatus('disconnected');
       }
     };
 
@@ -59,6 +74,7 @@ export function Chat() {
     // Cleanup al desmontar
     return () => {
       detenerSignalR();
+      if (cleanupGroupsEvents) cleanupGroupsEvents();
     };
   }, []);
 
@@ -102,9 +118,14 @@ export function Chat() {
     }
   };
 
-  const handleSelectUser = async (usuarioId: string) => {
-    console.log('[Chat] handleSelectUser usuarioId:', usuarioId);
-    await iniciarNuevaConversacion(usuarioId);
+  const handleSelectUser = async (usuario: any) => {
+    console.log('[Chat] handleSelectUser usuario:', usuario);
+    await iniciarNuevaConversacion({
+      id: usuario.id,
+      nombre: usuario.nombre,
+      avatarUrl: usuario.avatarUrl,
+      estado: usuario.estado
+    });
     console.log('[Chat] Conversacion actual después de seleccionar:', conversacionActual);
   };
 
@@ -134,6 +155,11 @@ export function Chat() {
         <div className="flex items-center space-x-4">
           <h1 className="text-xl font-bold text-gray-900">Chat App</h1>
           <span className="text-sm text-gray-500">TUP</span>
+          <div className="flex items-center" title={`SignalR: ${connectionStatus}`}>
+            <span className={`w-3 h-3 rounded-full ${connectionStatus === 'connected' ? 'bg-green-500' :
+              connectionStatus === 'connecting' ? 'bg-yellow-500' : 'bg-red-500'
+              }`}></span>
+          </div>
         </div>
         <div className="flex items-center space-x-4">
           <div className="text-right">

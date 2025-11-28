@@ -8,11 +8,13 @@ namespace Mensajes.API.Hubs;
 public class ChatHub : Hub
 {
     private readonly ILogger<ChatHub> _logger;
+    private readonly HttpClient _httpClient;
     private static readonly Dictionary<string, string> _userConnections = new();
 
-    public ChatHub(ILogger<ChatHub> _logger)
+    public ChatHub(ILogger<ChatHub> logger, IHttpClientFactory httpClientFactory)
     {
-        this._logger = _logger;
+        _logger = logger;
+        _httpClient = httpClientFactory.CreateClient();
     }
 
     public override async Task OnConnectedAsync()
@@ -26,8 +28,12 @@ public class ChatHub : Hub
         {
             _userConnections[userId] = Context.ConnectionId;
             _logger.LogInformation($"[SignalR] Usuario {userId} conectado con ConnectionId: {Context.ConnectionId}");
+            
             // Notificar a todos que el usuario está online
             await Clients.Others.SendAsync("UserConnected", userId);
+
+            // Actualizar estado en BD
+            await UpdateUserStatus(userId, "online");
         }
         else
         {
@@ -49,9 +55,45 @@ public class ChatHub : Hub
             
             // Notificar a todos que el usuario está offline
             await Clients.Others.SendAsync("UserDisconnected", userId);
+
+            // Actualizar estado en BD
+            await UpdateUserStatus(userId, "offline");
         }
 
         await base.OnDisconnectedAsync(exception);
+    }
+
+    private async Task UpdateUserStatus(string userId, string status)
+    {
+        try
+        {
+            var usuariosApiUrl = Environment.GetEnvironmentVariable("USUARIOS_API_URL") ?? "http://localhost:5156";
+            // Necesitamos pasar el token actual para autenticarnos contra Usuarios.API
+            // O podríamos usar un token de servicio a servicio, pero por simplicidad intentaremos propagar el contexto si es posible
+            // Dado que SignalR no propaga headers automáticamente en HttpClient, y Usuarios.API requiere Auth,
+            // esto es un punto delicado. 
+            
+            // POR AHORA: Asumimos que Usuarios.API permite esto o que implementaremos un cliente interno.
+            // Si Usuarios.API requiere token de usuario, necesitamos extraerlo del Context.
+            
+            var httpContext = Context.GetHttpContext();
+            var token = httpContext?.Request.Query["access_token"];
+            
+            if (!string.IsNullOrEmpty(token))
+            {
+                _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            }
+
+            var response = await _httpClient.PatchAsJsonAsync($"{usuariosApiUrl}/api/users/status", status);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning($"Error actualizando estado de usuario {userId} a {status}: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Excepción actualizando estado de usuario {userId}");
+        }
     }
 
     public async Task JoinGroup(string groupId)
@@ -77,7 +119,7 @@ public class ChatHub : Hub
             return;
         }
 
-        _logger.LogInformation($"Mensaje de {remitenteId} a {(grupoId != null ? "Grupo " + grupoId : destinatarioId)}: {contenido}");
+        _logger.LogInformation($"[DEBUG] SendMessage: De {remitenteId} para {(grupoId != null ? "Grupo " + grupoId : destinatarioId)}. Contenido: {contenido}");
 
         if (!string.IsNullOrEmpty(grupoId))
         {
@@ -91,21 +133,20 @@ public class ChatHub : Hub
                 tipoMensaje,
                 fechaEnvio = DateTime.UtcNow
             });
+            _logger.LogInformation($"[DEBUG] Mensaje enviado al grupo {grupoId}");
         }
         else
         {
-            // Enviar a usuario directo
-            if (_userConnections.TryGetValue(destinatarioId, out var connectionId))
+            // Enviar a usuario directo usando el mecanismo estándar de SignalR
+            await Clients.User(destinatarioId).SendAsync("ReceiveMessage", new
             {
-                await Clients.Client(connectionId).SendAsync("ReceiveMessage", new
-                {
-                    remitenteId,
-                    destinatarioId,
-                    contenido,
-                    tipoMensaje,
-                    fechaEnvio = DateTime.UtcNow
-                });
-            }
+                remitenteId,
+                destinatarioId,
+                contenido,
+                tipoMensaje,
+                fechaEnvio = DateTime.UtcNow
+            });
+            _logger.LogInformation($"[DEBUG] Mensaje enviado al usuario {destinatarioId}");
         }
 
         // También enviar al remitente para confirmación (siempre)
@@ -136,10 +177,7 @@ public class ChatHub : Hub
         var remitenteId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
                          ?? Context.User?.FindFirst("sub")?.Value;
 
-        if (_userConnections.TryGetValue(destinatarioId, out var connectionId))
-        {
-            await Clients.Client(connectionId).SendAsync("UserTyping", remitenteId);
-        }
+        await Clients.User(destinatarioId).SendAsync("UserTyping", remitenteId);
     }
 
     public async Task StopTyping(string destinatarioId)
@@ -147,10 +185,7 @@ public class ChatHub : Hub
         var remitenteId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
                          ?? Context.User?.FindFirst("sub")?.Value;
 
-        if (_userConnections.TryGetValue(destinatarioId, out var connectionId))
-        {
-            await Clients.Client(connectionId).SendAsync("UserStoppedTyping", remitenteId);
-        }
+        await Clients.User(destinatarioId).SendAsync("UserStoppedTyping", remitenteId);
     }
 
     public static bool IsUserOnline(string userId)

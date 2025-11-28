@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { messagesApiClient, type Conversacion, type Mensaje } from '../lib/messagesApi';
-import { getConnection, startConnection, stopConnection } from '../lib/signalr';
+import { getConnection, startConnection, stopConnection, buildConnection } from '../lib/signalr';
 
 interface MessagesState {
   conversaciones: Conversacion[];
@@ -16,11 +16,13 @@ interface MessagesState {
   detenerSignalR: () => Promise<void>;
   cargarConversaciones: () => Promise<void>;
   seleccionarConversacion: (id: string, tipo: 'usuario' | 'grupo') => Promise<void>;
-  iniciarNuevaConversacion: (usuarioId: string) => Promise<void>;
+  iniciarNuevaConversacion: (usuario: { id: string; nombre: string; avatarUrl?: string; estado?: string }) => Promise<void>;
   enviarMensaje: (destinatarioId: string, contenido: string, grupoId?: string) => Promise<void>;
   marcarComoLeido: (mensajeId: string) => Promise<void>;
   notificarEscribiendo: (destinatarioId: string) => void;
   notificarDejoDeEscribir: (destinatarioId: string) => void;
+  unirseAGrupos: (gruposIds: string[]) => Promise<void>;
+  eliminarConversacion: (id: string) => Promise<void>;
 }
 
 export const useMessagesStore = create<MessagesState>((set, get) => ({
@@ -34,11 +36,11 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
 
   inicializarSignalR: async () => {
     try {
-      const connection = await startConnection();
+      const connection = await buildConnection();
 
       // Escuchar mensaje recibido
       connection.on('ReceiveMessage', (mensaje: any) => {
-        console.log('📨 Mensaje recibido:', mensaje);
+        console.log('📨 [DEBUG] Mensaje recibido:', { id: mensaje.id, remitente: mensaje.remitenteId, contenido: mensaje.contenido });
         const { mensajes, conversacionActual } = get();
         const chatKey = mensaje.grupoId || mensaje.remitenteId;
 
@@ -126,7 +128,9 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
         get().cargarConversaciones();
       });
 
-      console.log('✅ SignalR inicializado correctamente');
+      // Iniciar la conexión después de registrar los eventos
+      await startConnection();
+
     } catch (error) {
       console.error('❌ Error al inicializar SignalR:', error);
       set({ error: 'Error al conectar con el servidor de mensajes' });
@@ -190,29 +194,29 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
     }
   },
 
-  iniciarNuevaConversacion: async (usuarioId: string) => {
-    console.log('[messagesStore] iniciarNuevaConversacion usuarioId:', usuarioId);
-    set({ conversacionActual: usuarioId });
+  iniciarNuevaConversacion: async (usuario: { id: string; nombre: string; avatarUrl?: string; estado?: string }) => {
+    console.log('[messagesStore] iniciarNuevaConversacion usuario:', usuario);
+    set({ conversacionActual: usuario.id });
     const { mensajes, conversaciones } = get();
-    if (!mensajes[usuarioId]) {
+    if (!mensajes[usuario.id]) {
       set({
         mensajes: {
           ...mensajes,
-          [usuarioId]: []
+          [usuario.id]: []
         }
       });
     }
-    // Si la conversación no existe, agregarla con datos mínimos
-    if (!conversaciones.some(c => c.otroUsuarioId === usuarioId)) {
+    // Si la conversación no existe, agregarla con datos correctos
+    if (!conversaciones.some(c => c.otroUsuarioId === usuario.id)) {
       set({
         conversaciones: [
           ...conversaciones,
           {
-            id: usuarioId, // temporal, puede ser usuarioId
-            otroUsuarioId: usuarioId,
-            otroUsuarioNombre: 'Nuevo usuario', // puedes mejorar esto si tienes el nombre
-            otroUsuarioAvatar: '',
-            otroUsuarioEstado: 'offline',
+            id: usuario.id,
+            otroUsuarioId: usuario.id,
+            otroUsuarioNombre: usuario.nombre,
+            otroUsuarioAvatar: usuario.avatarUrl || '',
+            otroUsuarioEstado: usuario.estado || 'offline',
             ultimaActividad: new Date().toISOString(),
             ultimoMensaje: undefined,
             mensajesNoLeidos: 0
@@ -224,6 +228,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
   },
 
   enviarMensaje: async (destinatarioId: string, contenido: string, grupoId?: string) => {
+    console.log('📤 [DEBUG] Enviando mensaje a:', { destinatarioId, grupoId, contenido });
     try {
       const mensaje = await messagesApiClient.enviarMensaje({
         destinatarioId,
@@ -231,6 +236,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
         contenido,
         tipoMensaje: 'texto'
       });
+      console.log('✅ [DEBUG] Mensaje enviado correctamente, ID:', mensaje.id);
 
       // Agregar mensaje a la lista local
       const { mensajes } = get();
@@ -272,6 +278,30 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
     const connection = getConnection();
     if (connection) {
       connection.invoke('StopTyping', destinatarioId);
+    }
+  },
+
+  unirseAGrupos: async (gruposIds: string[]) => {
+    const connection = getConnection();
+    if (connection && connection.state === 'Connected') {
+      try {
+        await Promise.all(gruposIds.map(id => connection.invoke('JoinGroup', id)));
+        console.log('✅ Unido a grupos:', gruposIds.length);
+      } catch (error) {
+        console.error('❌ Error al unirse a grupos:', error);
+      }
+    }
+  },
+
+  eliminarConversacion: async (id: string) => {
+    try {
+      await messagesApiClient.deleteConversation(id);
+      set((state) => ({
+        conversaciones: state.conversaciones.filter(c => c.id !== id),
+        conversacionActual: state.conversacionActual === id ? null : state.conversacionActual
+      }));
+    } catch (error) {
+      console.error('Error al eliminar conversación:', error);
     }
   }
 }));

@@ -87,6 +87,9 @@ public class GruposController : ControllerBase
 
             await _context.SaveChangesAsync();
 
+            // Notificar a Mensajes.API para que avise a los usuarios via SignalR
+            _ = NotifyGroupCreated(grupo.Id, grupo.Nombre, dto.MiembrosIds.Concat(new[] { userId }).ToList());
+
             return Ok(new { id = grupo.Id, nombre = grupo.Nombre });
         }
         catch (Exception ex)
@@ -94,6 +97,28 @@ public class GruposController : ControllerBase
             Console.WriteLine($"❌ [Grupos.API] Error en CrearGrupo: {ex.Message}");
             Console.WriteLine(ex.StackTrace);
             return StatusCode(500, $"Error interno: {ex.Message}");
+        }
+    }
+
+    private async Task NotifyGroupCreated(Guid groupId, string groupName, List<Guid> memberIds)
+    {
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
+            var apiUrl = Environment.GetEnvironmentVariable("MENSAJES_API_URL") ?? "http://localhost:5078";
+            
+            await client.PostAsJsonAsync($"{apiUrl}/api/notifications/group-added", new 
+            {
+                GroupId = groupId,
+                GroupName = groupName,
+                MemberIds = memberIds
+            });
+            
+            Console.WriteLine($"✅ [Grupos.API] Notificación enviada a Mensajes.API para grupo {groupName}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ [Grupos.API] Error al notificar creación de grupo: {ex.Message}");
         }
     }
 
@@ -224,6 +249,15 @@ public class GruposController : ControllerBase
 
             _context.MiembrosGrupo.Add(miembro);
             await _context.SaveChangesAsync();
+
+            // Obtener nombre del grupo
+            var nombreGrupo = await _context.Grupos
+                .Where(g => g.Id == id)
+                .Select(g => g.Nombre)
+                .FirstOrDefaultAsync() ?? "Grupo";
+
+            // Notificar
+            _ = NotifyGroupCreated(id, nombreGrupo, new List<Guid> { dto.UserId });
 
             return Ok(miembro);
         }

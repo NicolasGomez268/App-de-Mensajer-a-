@@ -145,6 +145,41 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
+    /// Obtiene un usuario por su ID
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("{id}")]
+    public async Task<ActionResult<UserDto>> GetUserById(Guid id)
+    {
+        try
+        {
+            var perfil = await _context.Perfiles.FindAsync(id);
+
+            if (perfil == null)
+            {
+                return NotFound();
+            }
+
+            return Ok(new UserDto
+            {
+                Id = perfil.Id,
+                AuthId = perfil.AuthId,
+                Email = perfil.Email,
+                Nombre = perfil.Nombre,
+                AvatarUrl = perfil.AvatarUrl,
+                Estado = perfil.Estado,
+                FechaCreacion = perfil.FechaCreacion,
+                UltimaConexion = perfil.UltimaConexion
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error obteniendo usuario {id}");
+            return StatusCode(500, "Error interno del servidor");
+        }
+    }
+
+    /// <summary>
     /// Obtiene todos los usuarios (para búsqueda de contactos)
     /// </summary>
     [HttpGet]

@@ -35,6 +35,6 @@ Write-Host '--------------------------------------------------'
 Write-Host "URLs de Acceso:" -ForegroundColor Cyan
 Write-Host "   Usuarios API: http://localhost:5156/swagger"
 Write-Host "   Grupos API:   http://localhost:5022/swagger"
-Write-Host "   Mensajes API: http://localhost:5078/swagger"
+Write-Host "   Mensajes API: http://localhost:5157/swagger"
 Write-Host "   Frontend UI:  http://localhost:5173"
 Write-Host '--------------------------------------------------'

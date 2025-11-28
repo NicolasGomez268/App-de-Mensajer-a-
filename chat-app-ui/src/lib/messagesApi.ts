@@ -197,6 +197,28 @@ class MessagesApiClient {
       throw new Error('Failed to delete message');
     }
   }
+
+  async deleteConversation(id: string): Promise<void> {
+    const token = await this.getAuthToken();
+
+    if (!token) {
+      throw new Error('No authentication token available');
+    }
+
+    const response = await fetch(
+      `${MENSAJES_API_URL}/api/messages/conversation/${id}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to delete conversation');
+    }
+  }
 }
 
 export const messagesApiClient = new MessagesApiClient();

@@ -5,26 +5,26 @@ const MENSAJES_API_URL = import.meta.env.VITE_MENSAJES_API_URL || 'http://localh
 
 let connection: signalR.HubConnection | null = null;
 
-export const createSignalRConnection = async () => {
+export const buildConnection = async () => {
   if (connection) {
     return connection;
   }
 
   // Obtener token de Supabase
   const { data: { session } } = await supabase.auth.getSession();
-  console.log('[SignalR] Sesión:', session);
+
   if (!session?.access_token) {
     console.error('[SignalR] No hay sesión activa, no se puede conectar');
     throw new Error('No hay sesión activa');
   }
-  console.log('[SignalR] Token JWT:', session.access_token);
-  console.log('[SignalR] User ID (sub):', session.user?.id);
+  // console.log('[SignalR] Token JWT:', session.access_token); // Removed for cleanup
+  // console.log('[SignalR] User ID (sub):', session.user?.id); // Removed for cleanup
 
   connection = new signalR.HubConnectionBuilder()
     .withUrl(`${MENSAJES_API_URL}/hubs/chat`, {
-      accessTokenFactory: () => {
-        console.log('[SignalR] accessTokenFactory called, token:', session.access_token);
-        return session.access_token;
+      accessTokenFactory: async () => {
+        const { data } = await supabase.auth.getSession();
+        return data.session?.access_token || '';
       },
       skipNegotiation: true,
       transport: signalR.HttpTransportType.WebSockets
@@ -32,16 +32,16 @@ export const createSignalRConnection = async () => {
     .withAutomaticReconnect({
       nextRetryDelayInMilliseconds: () => 3000 // Reintentar cada 3 segundos
     })
-    .configureLogging(signalR.LogLevel.Information)
+    .configureLogging(signalR.LogLevel.Warning) // Changed to Warning to reduce noise
     .build();
 
-  console.log('[SignalR] HubConnection creado:', connection);
+  console.log('[SignalR] HubConnection creado');
   return connection;
 };
 
 export const startConnection = async () => {
   if (!connection) {
-    connection = await createSignalRConnection();
+    connection = await buildConnection();
   }
 
   if (connection.state === signalR.HubConnectionState.Disconnected) {

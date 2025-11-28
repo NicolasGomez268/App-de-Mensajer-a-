@@ -4,7 +4,7 @@ import { apiClient, type User } from '../lib/api';
 interface UserSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectUser: (userId: string) => void;
+  onSelectUser: (usuario: any) => void;
 }
 
 export default function UserSearchModal({ isOpen, onClose, onSelectUser }: UserSearchModalProps) {
@@ -14,7 +14,7 @@ export default function UserSearchModal({ isOpen, onClose, onSelectUser }: UserS
 
   const buscarUsuarios = async () => {
     if (!busqueda.trim()) return;
-    
+
     setBuscando(true);
     try {
       console.log('🔍 Buscando usuarios:', busqueda);
@@ -35,7 +35,7 @@ export default function UserSearchModal({ isOpen, onClose, onSelectUser }: UserS
   };
 
   const handleSelectUser = (usuario: User) => {
-    onSelectUser(usuario.id);
+    onSelectUser(usuario);
     onClose();
     setBusqueda('');
     setUsuarios([]);
@@ -95,7 +95,7 @@ export default function UserSearchModal({ isOpen, onClose, onSelectUser }: UserS
                   />
                 ) : (
                   <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-white font-semibold">
-                    {usuario.nombre.charAt(0).toUpperCase()}
+                    {usuario.nombre?.charAt(0).toUpperCase() || '?'}
                   </div>
                 )}
                 <div className="flex-1">

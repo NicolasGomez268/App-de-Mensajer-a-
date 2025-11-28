@@ -50,12 +50,24 @@ public class MessagesController : ControllerBase
             return Unauthorized("No se pudo obtener el ID del usuario");
         }
 
+        // Resolver el AuthId del destinatario
+        // El frontend envía el ID interno, pero necesitamos el AuthId para consistencia en la BD y SignalR
+        var destinatarioId = request.DestinatarioId;
+        if (!request.GrupoId.HasValue)
+        {
+            var destinatarioInfo = await GetUserInfo(request.DestinatarioId);
+            if (destinatarioInfo != null && !string.IsNullOrEmpty(destinatarioInfo.AuthId))
+            {
+                destinatarioId = destinatarioInfo.AuthId;
+            }
+        }
+
         // Crear el mensaje
         var mensaje = new Mensaje
         {
             Id = Guid.NewGuid(),
             RemitenteId = remitenteId,
-            DestinatarioId = request.DestinatarioId,
+            DestinatarioId = destinatarioId, // Usar AuthId
             GrupoId = request.GrupoId,
             Contenido = request.Contenido,
             TipoMensaje = request.TipoMensaje,
@@ -67,13 +79,12 @@ public class MessagesController : ControllerBase
         _context.Mensajes.Add(mensaje);
 
         // Crear o actualizar conversación (solo si es mensaje directo)
-        // Crear o actualizar conversación (solo si es mensaje directo)
         if (!request.GrupoId.HasValue)
         {
             var conversacion = await _context.Conversaciones
                 .FirstOrDefaultAsync(c =>
-                    (c.Usuario1Id == remitenteId && c.Usuario2Id == request.DestinatarioId) ||
-                    (c.Usuario1Id == request.DestinatarioId && c.Usuario2Id == remitenteId));
+                    (c.Usuario1Id == remitenteId && c.Usuario2Id == destinatarioId) ||
+                    (c.Usuario1Id == destinatarioId && c.Usuario2Id == remitenteId));
 
             if (conversacion == null)
             {
@@ -81,7 +92,7 @@ public class MessagesController : ControllerBase
                 {
                     Id = Guid.NewGuid(),
                     Usuario1Id = remitenteId,
-                    Usuario2Id = request.DestinatarioId,
+                    Usuario2Id = destinatarioId, // Usar AuthId
                     UltimaActividad = DateTime.UtcNow,
                     UltimoMensajeId = mensaje.Id
                 };
@@ -97,6 +108,8 @@ public class MessagesController : ControllerBase
         await _context.SaveChangesAsync();
 
         // Enviar notificación via SignalR
+        _logger.LogInformation($"[DEBUG] Intentando enviar notificación SignalR. GrupoId: {request.GrupoId}, DestinatarioId: {destinatarioId}");
+        
         if (request.GrupoId.HasValue)
         {
              await _hubContext.Clients.Group(request.GrupoId.Value.ToString()).SendAsync("ReceiveMessage", new
@@ -110,10 +123,12 @@ public class MessagesController : ControllerBase
                 fechaEnvio = mensaje.FechaEnvio,
                 leido = mensaje.Leido
             });
+            _logger.LogInformation($"[DEBUG] Notificación SignalR enviada al grupo {request.GrupoId}");
         }
         else
         {
-            await _hubContext.Clients.User(request.DestinatarioId).SendAsync("ReceiveMessage", new
+            // Ya tenemos el AuthId en destinatarioId
+            await _hubContext.Clients.User(destinatarioId).SendAsync("ReceiveMessage", new
             {
                 id = mensaje.Id,
                 remitenteId = mensaje.RemitenteId,
@@ -123,9 +138,11 @@ public class MessagesController : ControllerBase
                 fechaEnvio = mensaje.FechaEnvio,
                 leido = mensaje.Leido
             });
+            _logger.LogInformation($"[DEBUG] Notificación SignalR enviada al usuario {destinatarioId}");
+
         }
 
-        _logger.LogInformation($"Mensaje enviado de {remitenteId} a {request.DestinatarioId}");
+        _logger.LogInformation($"Mensaje enviado de {remitenteId} a {destinatarioId}");
 
         return Ok(new MensajeDto
         {
@@ -411,6 +428,51 @@ public class MessagesController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Eliminar una conversación completa
+    /// </summary>
+    [HttpDelete("conversation/{conversationId}")]
+    public async Task<IActionResult> DeleteConversation(Guid conversationId)
+    {
+        var userId = GetCurrentUserId();
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        var conversacion = await _context.Conversaciones.FindAsync(conversationId);
+        if (conversacion == null)
+        {
+            return NotFound();
+        }
+
+        // Verificar que el usuario pertenece a la conversación
+        if (conversacion.Usuario1Id != userId && conversacion.Usuario2Id != userId)
+        {
+            return Forbid();
+        }
+
+        // Identificar al otro usuario
+        var otroUsuarioId = conversacion.Usuario1Id == userId ? conversacion.Usuario2Id : conversacion.Usuario1Id;
+
+        // Eliminar todos los mensajes entre estos dos usuarios
+        // Nota: Esto elimina el historial para AMBOS usuarios. 
+        // En una app real, quizás solo se ocultarían para el usuario que borra, 
+        // pero para este fix, queremos limpiar "ghost data".
+        var mensajes = await _context.Mensajes
+            .Where(m => 
+                (m.RemitenteId == userId && m.DestinatarioId == otroUsuarioId) ||
+                (m.RemitenteId == otroUsuarioId && m.DestinatarioId == userId))
+            .ToListAsync();
+
+        _context.Mensajes.RemoveRange(mensajes);
+        _context.Conversaciones.Remove(conversacion);
+        
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
     private async Task<UserInfoDto?> GetUserInfo(string userId)
     {
         try
@@ -435,6 +497,7 @@ public class MessagesController : ControllerBase
 public class UserInfoDto
 {
     public string Id { get; set; } = string.Empty;
+    public string? AuthId { get; set; }
     public string Nombre { get; set; } = string.Empty;
     public string? AvatarUrl { get; set; }
     public string Estado { get; set; } = "offline";

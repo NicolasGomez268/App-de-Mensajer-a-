@@ -8,6 +8,7 @@ interface GroupsState {
 
     cargarGrupos: () => Promise<void>;
     crearGrupo: (nombre: string, miembrosIds: string[]) => Promise<void>;
+    inicializarEventos: () => () => void;
 }
 
 export const useGroupsStore = create<GroupsState>((set, get) => ({
@@ -38,5 +39,14 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
             set({ error: 'Error al crear el grupo', loading: false });
             throw error;
         }
+    },
+
+    inicializarEventos: () => {
+        const handler = () => {
+            console.log('🔄 Recargando grupos por evento group-added');
+            get().cargarGrupos();
+        };
+        window.addEventListener('group-added', handler);
+        return () => window.removeEventListener('group-added', handler);
     }
 }));

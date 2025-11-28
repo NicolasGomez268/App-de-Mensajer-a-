@@ -22,7 +22,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   initialize: async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      
+
       if (session?.user) {
         // Sincronizar perfil con la API
         const user = await apiClient.syncUser({
@@ -31,22 +31,30 @@ export const useAuthStore = create<AuthState>((set) => ({
           nombre: session.user.user_metadata?.nombre || session.user.email!.split('@')[0],
           avatarUrl: session.user.user_metadata?.avatar_url
         })
-        
+
         set({ session, user, loading: false })
       } else {
         set({ session: null, user: null, loading: false })
       }
 
       // Escuchar cambios de autenticación
-      supabase.auth.onAuthStateChange(async (_event, session) => {
+      supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log(`[Auth] Event: ${event}`);
+
         if (session?.user) {
-          const user = await apiClient.syncUser({
-            authId: session.user.id,
-            email: session.user.email!,
-            nombre: session.user.user_metadata?.nombre || session.user.email!.split('@')[0],
-            avatarUrl: session.user.user_metadata?.avatar_url
-          })
-          set({ session, user })
+          // Solo sincronizar si es inicio de sesión o actualización de usuario
+          if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'USER_UPDATED') {
+            const user = await apiClient.syncUser({
+              authId: session.user.id,
+              email: session.user.email!,
+              nombre: session.user.user_metadata?.nombre || session.user.email!.split('@')[0],
+              avatarUrl: session.user.user_metadata?.avatar_url
+            })
+            set({ session, user })
+          } else if (event === 'TOKEN_REFRESHED') {
+            // Solo actualizar sesión, no re-sincronizar perfil completo (ahorra llamadas API)
+            set({ session })
+          }
         } else {
           set({ session: null, user: null })
         }
@@ -79,7 +87,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     })
 
     if (error) throw error
-    
+
     if (data.user && data.session) {
       const user = await apiClient.syncUser({
         authId: data.user.id,
@@ -87,7 +95,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         nombre,
         avatarUrl: data.user.user_metadata?.avatar_url
       })
-      
+
       set({ session: data.session, user })
     }
   },
@@ -98,11 +106,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       email,
       password
     })
-    
+
     console.log('Supabase sign in result:', { hasSession: !!data.session, hasUser: !!data.user, error })
 
     if (error) throw error
-    
+
     if (data.user && data.session) {
       const user = await apiClient.syncUser({
         authId: data.user.id,
@@ -110,7 +118,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         nombre: data.user.user_metadata?.nombre || email.split('@')[0],
         avatarUrl: data.user.user_metadata?.avatar_url
       })
-      
+
       set({ session: data.session, user })
     }
   },
